@@ -41,3 +41,49 @@ def safe_handle(event, handler):
         handler(event)
     except Exception as e:
         print(f"[Event] Error: {e}")
+     
+# Define event topics
+IMAGE_SUBMITTED = "image.submitted"
+INFERENCE_COMPLETED = "inference.completed"
+ANNOTATION_STORED = "annotation.stored"
+EMBEDDING_CREATED = "embedding.created"
+ANNOTATION_CORRECTED = "annotation.corrected"
+QUERY_SUBMITTED = "query.submitted"
+QUERY_COMPLETED = "query.completed"
+
+# Helper functions to create specific events
+def image_submitted(image_id, path, source="cli"):
+    return create_event(IMAGE_SUBMITTED, {
+        "image_id": image_id,
+        "path": path,
+        "source": source
+    })
+
+
+def inference_completed(image_id, objects):
+    return create_event(INFERENCE_COMPLETED, {
+        "image_id": image_id,
+        "objects": objects
+    })
+
+
+def annotation_stored(image_id, objects):
+    return create_event(ANNOTATION_STORED, {
+        "image_id": image_id,
+        "objects": objects
+    })
+
+
+def embedding_created(image_id, embedding):
+    return create_event(EMBEDDING_CREATED, {
+        "image_id": image_id,
+        "embedding": embedding
+    })
+
+
+def annotation_corrected(image_id, corrected_objects, notes=""):
+    return create_event(ANNOTATION_CORRECTED, {
+        "image_id": image_id,
+        "corrected_objects": corrected_objects,
+        "notes": notes
+    })
