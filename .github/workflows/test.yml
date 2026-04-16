@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas python-dotenv openai
+          pip install pandas python-dotenv openai redis
 
       - name: Run unit tests
         run: |
