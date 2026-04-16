@@ -44,6 +44,7 @@ def safe_handle(event, handler):
      
 # Define event topics
 IMAGE_SUBMITTED = "image.submitted"
+QUERY_SUBMITTED = "query.submitted"
 INFERENCE_COMPLETED = "inference.completed"
 ANNOTATION_STORED = "annotation.stored"
 EMBEDDING_CREATED = "embedding.created"
