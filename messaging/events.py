@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Create a simple event structure
 def create_event(topic, payload):
@@ -8,7 +8,7 @@ def create_event(topic, payload):
         "topic": topic,
         "event_id": f"evt_{uuid.uuid4().hex[:8]}",
         "payload": payload,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 # Validation whether the event has all required fields and correct format
