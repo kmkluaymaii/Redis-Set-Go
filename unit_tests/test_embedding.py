@@ -1,33 +1,32 @@
+python
+
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
-# faiss is a C extension not available in CI. Mock the entire module before
-# services.embedding is imported so the top-level `import faiss` never fails.
+# ---------------------------------------------------------------------------
+# faiss is a compiled C extension absent from CI.  Stub it in sys.modules
+# before any service module is imported so `import faiss` never fails.
+# ---------------------------------------------------------------------------
 _mock_faiss = MagicMock()
-_mock_index = MagicMock()
-_mock_index.ntotal = 0
-_mock_faiss.IndexFlatL2.return_value = _mock_index
 sys.modules.setdefault("faiss", _mock_faiss)
 
 import os
-from services.embedding import EmbeddingService
-from messaging.events import ANNOTATION_STORED, EMBEDDING_CREATED, create_event
+import numpy as np
 
 
 def _make_faiss_index():
-    """Return a fresh mock FAISS index that tracks vectors added to it."""
+    """Return a MagicMock FAISS index that correctly tracks ntotal."""
     index = MagicMock()
-    added = []
+    _store = []
 
     def _add(vec):
-        added.append(vec)
-        index.ntotal = len(added)
+        _store.append(vec)
+        index.ntotal = len(_store)
 
     def _search(query, k):
-        import numpy as np
-        n = min(k, len(added))
-        distances = [[0.0] * n]
+        n = min(k, len(_store))
+        distances = [([0.0] * n)]
         indices = [list(range(n))]
         return distances, indices
 
@@ -37,25 +36,43 @@ def _make_faiss_index():
     return index
 
 
+# ---------------------------------------------------------------------------
+# Patch MongoClient in *its own module* so that DocumentDBService.__init__
+# (which is imported locally inside _load_existing_embeddings) never tries
+# to open a real TCP connection.  This patch stays active for the whole
+# test module.
+# ---------------------------------------------------------------------------
+_mongo_patcher = patch("services.document_db.MongoClient", autospec=True)
+_mock_mongo = _mongo_patcher.start()
+_mock_mongo.return_value.__getitem__.return_value.__getitem__.return_value = MagicMock()
+
+from services.embedding import EmbeddingService  # noqa: E402  (import after stubs)
+from messaging.events import ANNOTATION_STORED, EMBEDDING_CREATED, create_event  # noqa: E402
+
+
 class TestEmbeddingService(unittest.TestCase):
+
     def setUp(self):
         self.mock_broker = MagicMock()
-        # Patch DocumentDBService so _load_existing_embeddings never hits MongoDB,
-        # and patch faiss.IndexFlatL2 to get a fresh trackable index per test.
         self.mock_index = _make_faiss_index()
         _mock_faiss.IndexFlatL2.return_value = self.mock_index
 
-        with patch("services.embedding.DocumentDBService") as mock_db_cls:
-            mock_db_cls.return_value.get_all_embeddings.return_value = {}
-            self.service = EmbeddingService(self.mock_broker)
-            # Replace the index with our trackable one
-            self.service.index = self.mock_index
+        # EmbeddingService.__init__ calls faiss.IndexFlatL2 — that's fine now.
+        # start() calls _load_existing_embeddings, which internally instantiates
+        # DocumentDBService — that's fine because MongoClient is patched above.
+        self.service = EmbeddingService(self.mock_broker)
+        # Replace whatever index the constructor built with our trackable mock.
+        self.service.index = self.mock_index
+
+    @classmethod
+    def tearDownClass(cls):
+        _mongo_patcher.stop()
+
+    # ------------------------------------------------------------------
 
     def test_start_subscribes_to_topic(self):
         """start() must subscribe to annotation.stored."""
-        with patch("services.embedding.DocumentDBService") as mock_db_cls:
-            mock_db_cls.return_value.get_all_embeddings.return_value = {}
-            self.service.start()
+        self.service.start()
         self.mock_broker.subscribe.assert_called_once_with(
             "annotation.stored", self.service._handle_annotation_stored
         )
@@ -87,14 +104,13 @@ class TestEmbeddingService(unittest.TestCase):
 
     def test_create_embedding_returns_256_dimensions(self):
         """_create_embedding must return a 256-element list of floats."""
-        annotations = [{"label": "cat", "confidence": 0.9}]
         mock_img = MagicMock()
         mock_img.__enter__ = MagicMock(return_value=mock_img)
         mock_img.__exit__ = MagicMock(return_value=False)
         mock_img.tobytes.return_value = b"\x00" * 1000
 
         with patch("PIL.Image.open", return_value=mock_img):
-            embedding = self.service._create_embedding("/test.jpg", annotations)
+            embedding = self.service._create_embedding("/test.jpg", [{"label": "cat", "confidence": 0.9}])
 
         self.assertIsInstance(embedding, list)
         self.assertEqual(len(embedding), 256)
@@ -124,10 +140,9 @@ class TestEmbeddingService(unittest.TestCase):
     def test_storage_and_retrieval(self):
         """Embeddings must be stored in the dict and retrievable after handling an event."""
         image_path = os.path.join("images", "test.jpg")
-        annotations = [{"label": "dog", "confidence": 0.8}]
         event = create_event(ANNOTATION_STORED, {
             "image_path": image_path,
-            "annotations": annotations,
+            "annotations": [{"label": "dog", "confidence": 0.8}],
             "stored_at": image_path,
         })
 
