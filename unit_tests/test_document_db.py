@@ -14,7 +14,7 @@ class TestDocumentDBService(unittest.TestCase):
 
     def setUp(self):
         # Patch MongoClient safely per-test (avoids autospec collisions)
-        self.mongo_patcher = patch("services.document_db.MongoClient", autospec=True)
+        self.mongo_patcher = patch("services.document_db.MongoClient")
         self.mock_mongo_cls = self.mongo_patcher.start()
         self.addCleanup(self.mongo_patcher.stop)
 
