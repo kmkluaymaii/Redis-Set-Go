@@ -103,8 +103,13 @@ def process_all_images():
             
             if embedding:
                 print(f"Generated {len(embedding)}-dimensional embedding")
-                # Store embedding in the shared service's dictionary
+                # Store embedding in the shared service's dictionary and FAISS index
                 shared_embedding_service.embeddings[uploaded_path] = embedding
+                # Add to FAISS index
+                import numpy as np
+                embedding_np = np.array([embedding], dtype=np.float32)
+                shared_embedding_service.index.add(embedding_np)
+                shared_embedding_service.image_paths.append(uploaded_path)
             else:
                 print("No embedding generated")
 
@@ -123,7 +128,7 @@ def process_all_images():
     # Test querying - create a new query service that shares the embedding store
     print("\nTesting queries...")
     embedding_service = shared_embedding_service  # Use the shared instance
-    query_service = QueryService(broker, embedding_service.embeddings)
+    query_service = QueryService(broker, embedding_service)
     test_queries = ["dog", "cat", "rabbit", "deer", "giraffe"]
 
     for query in test_queries:

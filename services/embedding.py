@@ -1,29 +1,68 @@
 from messaging.broker import RedisBroker
-from messaging.events import EMBEDDING_CREATED, create_event
+from messaging.events import create_event
 from PIL import Image
 import hashlib
+import faiss
+import numpy as np
 
 class EmbeddingService:
-    def __init__(self, broker: RedisBroker):
+    def __init__(self, broker: RedisBroker, embedding_dim=256):
         self.broker = broker
-        self.embeddings = {}  # Mock storage: image_path -> embedding vector
+        self.embedding_dim = embedding_dim
+
+        # Initialize FAISS index for L2 distance (cosine similarity)
+        self.index = faiss.IndexFlatL2(embedding_dim)
+
+        # Keep track of image paths corresponding to embeddings in the index
+        self.image_paths = []
+
+        # For backward compatibility, maintain a dictionary mapping
+        self.embeddings = {}
 
     def start(self):
         self.broker.subscribe("annotation.stored", self._handle_annotation_stored)
+        # Load existing embeddings from database
+        self._load_existing_embeddings()
+
+    def _load_existing_embeddings(self):
+        """Load existing embeddings from MongoDB into FAISS index."""
+        try:
+            from services.document_db import DocumentDBService
+            # Create a temporary DB service to load embeddings
+            temp_db = DocumentDBService(self.broker)
+            existing_embeddings = temp_db.get_all_embeddings()
+
+            for image_path, embedding in existing_embeddings.items():
+                self.embeddings[image_path] = embedding
+                # Add to FAISS index
+                embedding_np = np.array([embedding], dtype=np.float32)
+                self.index.add(embedding_np)
+                self.image_paths.append(image_path)
+
+            print(f"Loaded {len(existing_embeddings)} existing embeddings into FAISS index")
+        except Exception as e:
+            print(f"Warning: Could not load existing embeddings: {e}")
+        # Load existing embeddings from database
+        self._load_existing_embeddings()
 
     def _handle_annotation_stored(self, event):
         """Handle an annotation stored event by creating embeddings."""
         image_path = event["payload"]["image_path"]
         annotations = event["payload"]["annotations"]
-        
+
         # Generate embedding from image and annotations
         embedding = self._create_embedding(image_path, annotations)
-        
-        # Store embedding
+
+        # Store embedding in both dictionary (for backward compatibility) and FAISS index
         self.embeddings[image_path] = embedding
 
+        # Add to FAISS index
+        embedding_np = np.array([embedding], dtype=np.float32)
+        self.index.add(embedding_np)
+        self.image_paths.append(image_path)
+
         # Create and publish embedding created event
-        result_event = create_event(EMBEDDING_CREATED, {
+        result_event = create_event("embedding.created", {
             "image_path": image_path,
             "embedding": embedding,
             "dimensions": len(embedding)
@@ -73,3 +112,26 @@ class EmbeddingService:
     def get_embedding(self, image_path: str):
         """Retrieve stored embedding for an image."""
         return self.embeddings.get(image_path)
+
+    def search_similar(self, query_embedding: list, k: int = 5) -> list:
+        """Search for k most similar embeddings using FAISS."""
+        if self.index.ntotal == 0:
+            return []
+
+        # Convert query to numpy array
+        query_np = np.array([query_embedding], dtype=np.float32)
+
+        # Search for k nearest neighbors
+        distances, indices = self.index.search(query_np, min(k, self.index.ntotal))
+
+        # Return list of (image_path, distance) tuples
+        results = []
+        for i, idx in enumerate(indices[0]):
+            if idx < len(self.image_paths):
+                results.append((self.image_paths[idx], float(distances[0][i])))
+
+        return results
+
+    def get_total_embeddings(self) -> int:
+        """Get total number of embeddings in the FAISS index."""
+        return self.index.ntotal
