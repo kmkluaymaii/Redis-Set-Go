@@ -12,3 +12,5 @@ Project by Rawisara Chairat (rawisara@bu.edu) and Pippi Pi (ppp@bu.edu)
 **4. Embedding Service** (embedding.py)
 
 **5. CLI Service** (cli.py)
+
+**6. Query Service** (query.py)
