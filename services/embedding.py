@@ -1,5 +1,5 @@
 from messaging.broker import RedisBroker
-from messaging.events import create_event
+from messaging.events import EMBEDDING_CREATED, create_event
 from PIL import Image
 import hashlib
 import faiss
@@ -28,23 +28,22 @@ class EmbeddingService:
         """Load existing embeddings from MongoDB into FAISS index."""
         try:
             from services.document_db import DocumentDBService
-            # Create a temporary DB service to load embeddings
+
             temp_db = DocumentDBService(self.broker)
             existing_embeddings = temp_db.get_all_embeddings()
 
             for image_path, embedding in existing_embeddings.items():
                 self.embeddings[image_path] = embedding
-                # Add to FAISS index
+
                 embedding_np = np.array([embedding], dtype=np.float32)
                 self.index.add(embedding_np)
                 self.image_paths.append(image_path)
 
             print(f"Loaded {len(existing_embeddings)} existing embeddings into FAISS index")
+
         except Exception as e:
             print(f"Warning: Could not load existing embeddings: {e}")
-        # Load existing embeddings from database
-        self._load_existing_embeddings()
-
+    
     def _handle_annotation_stored(self, event):
         """Handle an annotation stored event by creating embeddings."""
         image_path = event["payload"]["image_path"]
