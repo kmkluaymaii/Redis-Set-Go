@@ -1,2 +1,6 @@
+pandas
+python-dotenv
+openai
+redis
 pymongo
 pillow
