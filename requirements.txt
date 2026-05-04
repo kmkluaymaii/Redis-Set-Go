@@ -4,3 +4,4 @@ openai
 redis
 pymongo
 pillow
+python
