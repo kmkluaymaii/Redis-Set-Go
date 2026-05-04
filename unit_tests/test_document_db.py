@@ -7,9 +7,13 @@ class TestDocumentDBService(unittest.TestCase):
     def setUp(self):
         self.mock_broker = MagicMock()
         self.service = DocumentDBService(self.mock_broker)
+        self.service.start()  # Start the service to subscribe
 
-    def test_constructor_subscribes_to_topic(self):
-        """Test that the service subscribes to inference.completed on initialization."""
+    def test_start_subscribes_to_topic(self):
+        """Test that the service subscribes to inference.completed when started."""
+        # Reset the mock to check calls during start()
+        self.mock_broker.reset_mock()
+        self.service.start()
         self.mock_broker.subscribe.assert_called_once_with("inference.completed", self.service._handle_inference_completed)
 
     def test_handle_inference_completed(self):
@@ -35,7 +39,7 @@ class TestDocumentDBService(unittest.TestCase):
         self.assertEqual(published_event["topic"], ANNOTATION_STORED)
         self.assertEqual(published_event["payload"]["image_path"], image_path)
         self.assertEqual(published_event["payload"]["annotations"], annotations)
-        self.assertEqual(published_event["payload"]["stored_at"], image_path)
+        self.assertEqual(published_event["payload"]["stored_at"], f"mongodb:{image_path}")
 
     def test_storage_and_retrieval(self):
         """Test that annotations are stored and can be retrieved."""

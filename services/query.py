@@ -4,6 +4,8 @@ class QueryService:
     def __init__(self, broker, embedding_store=None):
         self.broker = broker
         self.embedding_store = embedding_store if embedding_store is not None else {}
+
+    def start(self):
         self.broker.subscribe(QUERY_SUBMITTED, self._handle_query_submitted)
 
     def _handle_query_submitted(self, event):
