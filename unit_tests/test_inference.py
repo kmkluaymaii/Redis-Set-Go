@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import MagicMock
 from services.inference import InferenceService
@@ -15,7 +16,7 @@ class TestInferenceService(unittest.TestCase):
     def test_handle_image_submitted(self):
         """Test that image submission events are processed and inference completed events are published."""
         # Create a mock image submitted event
-        image_path = "/path/to/test/image.jpg"
+        image_path = os.path.join("images", "test.jpg")
         event = create_event(IMAGE_SUBMITTED, {
             "stored_path": image_path,
             "filename": "test.jpg"

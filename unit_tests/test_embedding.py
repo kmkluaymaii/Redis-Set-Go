@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 from services.embedding import EmbeddingService
 from messaging.events import ANNOTATION_STORED, EMBEDDING_CREATED, create_event
+import os
 
 class TestEmbeddingService(unittest.TestCase):
     def setUp(self):
@@ -59,7 +60,7 @@ class TestEmbeddingService(unittest.TestCase):
 
     def test_storage_and_retrieval(self):
         """Test that embeddings are stored and can be retrieved."""
-        image_path = "/test/image.jpg"
+        image_path = os.path.join("images", "test.jpg")
         annotations = [{"label": "dog", "confidence": 0.8}]
 
         # Simulate storing via event handling
