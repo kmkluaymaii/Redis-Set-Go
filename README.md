@@ -20,6 +20,11 @@ The system is composed by services connected through an event-driven pipeline:
 
 **6. CLI Service** (cli.py): Provides a command-line interface to interact with the system.
 
+### Architecture
+
+<img width="1440" height="1080" alt="image" src="https://github.com/user-attachments/assets/881308c6-5b95-4554-a7f8-52180920828c" />
+<sub>Generated with assistance from Claude AI</sub>
+
 ### Sample Run
 
 Below is an example execution of the full pipeline processing 5 animals images:
