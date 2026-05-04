@@ -2,6 +2,8 @@
 
 Project by Rawisara Chairat (rawisara@bu.edu) and Pippi Pi (ppp@bu.edu)
 
+Link to the architecture video: [Redis Set Go Video!](https://youtu.be/xID1fX7qpSk)
+
 ### System Overview
 The system is composed by services connected through an event-driven pipeline:
 
